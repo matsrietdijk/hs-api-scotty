@@ -8,5 +8,7 @@ import Web.Scotty
 
 api :: IO ()
 api = scotty 3000 $ do
-    get "/" $ do
-        html "Hello World"
+    get "/" homeAction
+
+homeAction :: ActionM ()
+homeAction = html "Hello World"
