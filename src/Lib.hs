@@ -1,6 +1,12 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Lib
-    ( someFunc
+    ( api
     ) where
 
-someFunc :: IO ()
-someFunc = putStrLn "someFunc"
+import Web.Scotty
+
+api :: IO ()
+api = scotty 3000 $ do
+    get "/" $ do
+        html "Hello World"
