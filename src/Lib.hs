@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Lib
     ( api
@@ -7,10 +8,12 @@ module Lib
 import Web.Scotty
 import Data.Aeson hiding (json)
 import Data.Text hiding (length)
+import GHC.Int
 
 api :: IO ()
 api = scotty 3000 $ do
     get "/" homeAction
+    get "/:id" showAction
 
 data Post = Post
             { postId :: Maybe Integer,
@@ -33,3 +36,9 @@ homeAction = json $ object [ "posts" .= posts,
     where posts = [Post (Just 1) "title 1" "body 1"]
           meta = object [ "count" .= length posts
                         ]
+showAction :: ActionM ()
+showAction = do
+    _id :: Int64 <- param "id"
+    json $ object [ "post" .= single_post
+                  ]
+    where single_post = Post (Just 1) "title 1" "body 1"
