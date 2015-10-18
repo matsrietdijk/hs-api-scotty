@@ -5,10 +5,9 @@ module Lib
     ( api
     ) where
 
-import Web.Scotty
-import Data.Aeson hiding (json)
-import Data.Text hiding (length)
-import GHC.Int
+import Web.Scotty (ActionM, scotty, get, json, param)
+import Data.Aeson (ToJSON (..), object, (.=))
+import Data.Text (Text)
 
 api :: IO ()
 api = scotty 3000 $ do
@@ -38,7 +37,7 @@ homeAction = json $ object [ "posts" .= posts,
                         ]
 showAction :: ActionM ()
 showAction = do
-    _id :: Int64 <- param "id"
+    _id :: Integer <- param "id"
     json $ object [ "post" .= single_post
                   ]
     where single_post = Post (Just 1) "title 1" "body 1"
