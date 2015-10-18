@@ -10,7 +10,7 @@ module Api
 import Web.Scotty.Trans (ActionT, scottyT, get, json, param, status)
 import Data.Aeson (ToJSON (..), object, (.=))
 import Data.Text.Lazy (Text)
-import Database.PostgreSQL.Simple (Connection, ConnectInfo (..), Only (..), connect, defaultConnectInfo, query)
+import Database.PostgreSQL.Simple (Connection, ConnectInfo (..), Only (..), ToRow, FromRow, Query, connect, defaultConnectInfo, query)
 import Control.Monad.Reader (ReaderT, MonadReader, runReaderT, asks)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Class (lift)
@@ -24,6 +24,7 @@ newtype ConfigM a = ConfigM
                  { runConfigM :: ReaderT Config IO a
                  } deriving (Applicative, Functor, Monad, MonadIO, MonadReader Config)
 
+getConfig :: IO Config
 getConfig = do
     conn <- connect defaultConnectInfo { connectDatabase = "hs-api-scotty",
                                          connectUser = "mats"
@@ -52,7 +53,8 @@ instance ToJSON Post where
                  "body" .= pBody
                ]
 
-type Action = ActionT Text ConfigM ()
+type ActionM a = ActionT Text ConfigM a
+type Action = ActionM ()
 
 homeAction :: Action
 homeAction = do
@@ -74,14 +76,17 @@ showAction = do
             status notFound404
             json ()
 
+runDB :: (ToRow p, FromRow r) => Query -> p -> ActionM [r]
 runDB q p = do
     conn <- lift $ asks dbConn
     liftIO $ query conn q p
 
+allPosts :: ActionM [Post]
 allPosts = do
     rows <- runDB "select * from posts" ()
     return $ map (\(id, title, body) -> Post (Just id) title body) rows
 
+findPost :: Integer -> ActionM (Maybe Post)
 findPost id = do
     rows <- runDB "select * from posts where id = ?" (Only id)
     return $ firstPost rows
