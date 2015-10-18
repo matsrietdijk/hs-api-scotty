@@ -24,20 +24,8 @@ newtype ConfigM a = ConfigM
                  { runConfigM :: ReaderT Config IO a
                  } deriving (Applicative, Functor, Monad, MonadIO, MonadReader Config)
 
-getConfig :: IO Config
-getConfig = do
-    conn <- connect defaultConnectInfo { connectDatabase = "hs-api-scotty",
-                                         connectUser = "mats"
-                                       }
-    return $ Config conn
-
-api :: IO ()
-api = do
-    conf <- getConfig
-    let r m = runReaderT (runConfigM m) conf
-    scottyT 3000 r $ do
-        get "/" homeAction
-        get "/:id" showAction
+type ActionM a = ActionT Text ConfigM a
+type Action = ActionM ()
 
 data Post = Post
             { postId :: Maybe Integer,
@@ -53,8 +41,20 @@ instance ToJSON Post where
                  "body" .= pBody
                ]
 
-type ActionM a = ActionT Text ConfigM a
-type Action = ActionM ()
+getConfig :: IO Config
+getConfig = do
+    conn <- connect defaultConnectInfo { connectDatabase = "hs-api-scotty",
+                                         connectUser = "mats"
+                                       }
+    return $ Config conn
+
+api :: IO ()
+api = do
+    conf <- getConfig
+    let r m = runReaderT (runConfigM m) conf
+    scottyT 3000 r $ do
+        get "/" homeAction
+        get "/:id" showAction
 
 homeAction :: Action
 homeAction = do
