@@ -1,20 +1,24 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 
 module Api
     ( api
     ) where
 
-import Web.Scotty.Trans (ActionT, scottyT, get, json, param, status)
-import Data.Aeson (ToJSON (..), object, (.=))
-import Data.Text.Lazy (Text)
-import Database.PostgreSQL.Simple (Connection, ConnectInfo (..), Only (..), ToRow, FromRow, Query, connect, defaultConnectInfo, query)
-import Control.Monad.Reader (ReaderT, MonadReader, runReaderT, asks)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Trans.Class (lift)
-import Network.HTTP.Types.Status (notFound404)
+import           Control.Monad.IO.Class     (MonadIO, liftIO)
+import           Control.Monad.Reader       (MonadReader, ReaderT, asks,
+                                             runReaderT)
+import           Control.Monad.Trans.Class  (lift)
+import           Data.Aeson                 (ToJSON (..), object, (.=))
+import           Data.Text.Lazy             (Text)
+import           Database.PostgreSQL.Simple (ConnectInfo (..), Connection,
+                                             FromRow, Only (..), Query, ToRow,
+                                             connect, defaultConnectInfo, query)
+import           Network.HTTP.Types.Status  (notFound404)
+import           Web.Scotty.Trans           (ActionT, get, json, param, scottyT,
+                                             status)
 
 data Config = Config
               { dbConn :: Connection
@@ -28,9 +32,9 @@ type ActionM a = ActionT Text ConfigM a
 type Action = ActionM ()
 
 data Post = Post
-            { postId :: Maybe Integer,
+            { postId    :: Maybe Integer,
               postTitle :: Text,
-              postBody :: Text
+              postBody  :: Text
             }
             deriving (Show)
 
