@@ -12,6 +12,7 @@ import           Control.Monad.Reader               (MonadReader, ReaderT, asks,
                                                      runReaderT)
 import           Control.Monad.Trans.Class          (lift)
 import           Data.Aeson                         (ToJSON (..), object, (.=))
+import           Data.List                          (find)
 import           Data.Maybe                         (listToMaybe)
 import           Data.Text.Lazy                     (Text)
 import           Database.PostgreSQL.Simple         (ConnectInfo (..),
@@ -19,9 +20,15 @@ import           Database.PostgreSQL.Simple         (ConnectInfo (..),
                                                      Query, ToRow, connect,
                                                      defaultConnectInfo, query)
 import           Database.PostgreSQL.Simple.FromRow (FromRow (..), field)
-import           Network.HTTP.Types.Status          (notFound404)
+import           Database.PostgreSQL.Simple.ToField (ToField (..))
+import           Database.PostgreSQL.Simple.ToRow   (ToRow (..))
+import           Network.HTTP.Types.Status          (created201,
+                                                     internalServerError500,
+                                                     notAcceptable406,
+                                                     notFound404)
 import           Web.Scotty.Trans                   (ActionT, get, json, param,
-                                                     scottyT, status)
+                                                     params, post, scottyT,
+                                                     status)
 
 data Config = Config
               { dbConn :: Connection
@@ -51,6 +58,9 @@ instance ToJSON Post where
 instance FromRow Post where
     fromRow = Post <$> field <*> field <*> field
 
+instance ToRow Post where
+    toRow (Post _ pTitle pBody) = [toField pTitle, toField pBody]
+
 getConfig :: IO Config
 getConfig = do
     conn <- connect defaultConnectInfo { connectDatabase = "hs-api-scotty",
@@ -64,6 +74,7 @@ api = do
     let r m = runReaderT (runConfigM m) conf
     scottyT 3000 r $ do
         get "/" indexAction
+        post "/" createAction
         get "/:id" showAction
 
 indexAction :: Action
@@ -74,6 +85,25 @@ indexAction = do
                   ]
     where meta ps = object [ "count" .= length ps
                            ]
+
+createAction :: Action
+createAction = do
+    prms <- params
+    case (findVal "title" prms, findVal "body" prms) of
+        (Just pTitle, Just pBody) -> do
+            mp <- insertPost (Post Nothing pTitle pBody)
+            case mp of
+                Just p -> do
+                    status created201
+                    json $ object [ "post" .= p
+                                  ]
+                _ -> do
+                    status internalServerError500
+                    json ()
+        _ -> do
+            status notAcceptable406
+            json ()
+    where findVal key prms = fmap snd $ find (\(k, v) -> k == key) prms
 
 showAction :: Action
 showAction = do
@@ -93,6 +123,9 @@ runDB q p = do
 
 allPosts :: ActionM [Post]
 allPosts = runDB "select id, title, body from posts" ()
+
+insertPost :: Post -> ActionM (Maybe Post)
+insertPost = fmap listToMaybe . runDB "insert into posts (title, body) values (?, ?) returning id, title, body"
 
 findPost :: Integer -> ActionM (Maybe Post)
 findPost id = fmap listToMaybe $ runDB "select id, title, body from posts where id = ?" (Only id)
