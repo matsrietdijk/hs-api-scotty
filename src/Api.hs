@@ -18,17 +18,19 @@ import           Data.Text.Lazy                     (Text)
 import           Database.PostgreSQL.Simple         (ConnectInfo (..),
                                                      Connection, Only (..),
                                                      Query, ToRow, connect,
-                                                     defaultConnectInfo, query)
+                                                     defaultConnectInfo,
+                                                     execute, query)
 import           Database.PostgreSQL.Simple.FromRow (FromRow (..), field)
 import           Database.PostgreSQL.Simple.ToField (ToField (..))
 import           Database.PostgreSQL.Simple.ToRow   (ToRow (..))
+import           GHC.Int                            (Int64)
 import           Network.HTTP.Types.Status          (created201,
                                                      internalServerError500,
                                                      notAcceptable406,
                                                      notFound404)
-import           Web.Scotty.Trans                   (ActionT, get, json, param,
-                                                     params, post, scottyT,
-                                                     status)
+import           Web.Scotty.Trans                   (ActionT, delete, get, json,
+                                                     param, params, post,
+                                                     scottyT, status)
 
 data Config = Config
               { dbConn :: Connection
@@ -76,6 +78,7 @@ api = do
         get "/" indexAction
         post "/" createAction
         get "/:id" showAction
+        delete "/:id" deleteAction
 
 indexAction :: Action
 indexAction = do
@@ -116,10 +119,21 @@ showAction = do
             status notFound404
             json ()
 
+deleteAction :: Action
+deleteAction = do
+    id :: Integer <- param "id"
+    _ <- deletePost id
+    json ()
+
 runDB :: (ToRow p, FromRow r) => Query -> p -> ActionM [r]
 runDB q p = do
     conn <- lift $ asks dbConn
     liftIO $ query conn q p
+
+execDB :: ToRow p => Query -> p -> ActionM Int64
+execDB q p = do
+    conn <- lift $ asks dbConn
+    liftIO $ execute conn q p
 
 allPosts :: ActionM [Post]
 allPosts = runDB "select id, title, body from posts" ()
@@ -129,3 +143,6 @@ insertPost = fmap listToMaybe . runDB "insert into posts (title, body) values (?
 
 findPost :: Integer -> ActionM (Maybe Post)
 findPost = fmap listToMaybe . runDB "select id, title, body from posts where id = ?" . Only
+
+deletePost :: Integer -> ActionM Int64
+deletePost = execDB "delete from posts where id = ?" . Only
