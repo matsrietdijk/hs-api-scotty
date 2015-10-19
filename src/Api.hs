@@ -128,4 +128,4 @@ insertPost :: Post -> ActionM (Maybe Post)
 insertPost = fmap listToMaybe . runDB "insert into posts (title, body) values (?, ?) returning id, title, body"
 
 findPost :: Integer -> ActionM (Maybe Post)
-findPost id = fmap listToMaybe $ runDB "select id, title, body from posts where id = ?" (Only id)
+findPost = fmap listToMaybe . runDB "select id, title, body from posts where id = ?" . Only
