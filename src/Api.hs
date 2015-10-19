@@ -57,11 +57,11 @@ api = do
     conf <- getConfig
     let r m = runReaderT (runConfigM m) conf
     scottyT 3000 r $ do
-        get "/" homeAction
+        get "/" indexAction
         get "/:id" showAction
 
-homeAction :: Action
-homeAction = do
+indexAction :: Action
+indexAction = do
     ps <- allPosts
     json $ object [ "posts" .= ps,
                     "meta" .= meta ps
