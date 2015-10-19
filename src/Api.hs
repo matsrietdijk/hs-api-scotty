@@ -7,18 +7,21 @@ module Api
     ( api
     ) where
 
-import           Control.Monad.IO.Class     (MonadIO, liftIO)
-import           Control.Monad.Reader       (MonadReader, ReaderT, asks,
-                                             runReaderT)
-import           Control.Monad.Trans.Class  (lift)
-import           Data.Aeson                 (ToJSON (..), object, (.=))
-import           Data.Text.Lazy             (Text)
-import           Database.PostgreSQL.Simple (ConnectInfo (..), Connection,
-                                             FromRow, Only (..), Query, ToRow,
-                                             connect, defaultConnectInfo, query)
-import           Network.HTTP.Types.Status  (notFound404)
-import           Web.Scotty.Trans           (ActionT, get, json, param, scottyT,
-                                             status)
+import           Control.Monad.IO.Class             (MonadIO, liftIO)
+import           Control.Monad.Reader               (MonadReader, ReaderT, asks,
+                                                     runReaderT)
+import           Control.Monad.Trans.Class          (lift)
+import           Data.Aeson                         (ToJSON (..), object, (.=))
+import           Data.Maybe                         (listToMaybe)
+import           Data.Text.Lazy                     (Text)
+import           Database.PostgreSQL.Simple         (ConnectInfo (..),
+                                                     Connection, Only (..),
+                                                     Query, ToRow, connect,
+                                                     defaultConnectInfo, query)
+import           Database.PostgreSQL.Simple.FromRow (FromRow (..), field)
+import           Network.HTTP.Types.Status          (notFound404)
+import           Web.Scotty.Trans                   (ActionT, get, json, param,
+                                                     scottyT, status)
 
 data Config = Config
               { dbConn :: Connection
@@ -44,6 +47,9 @@ instance ToJSON Post where
                  "title" .= pTitle,
                  "body" .= pBody
                ]
+
+instance FromRow Post where
+    fromRow = Post <$> field <*> field <*> field
 
 getConfig :: IO Config
 getConfig = do
@@ -86,13 +92,7 @@ runDB q p = do
     liftIO $ query conn q p
 
 allPosts :: ActionM [Post]
-allPosts = do
-    rows <- runDB "select * from posts" ()
-    return $ map (\(id, title, body) -> Post (Just id) title body) rows
+allPosts = runDB "select id, title, body from posts" ()
 
 findPost :: Integer -> ActionM (Maybe Post)
-findPost id = do
-    rows <- runDB "select * from posts where id = ?" (Only id)
-    return $ firstPost rows
-    where firstPost ((id, title, body) : _) = Just $ Post (Just id) title body
-          firstPost _ = Nothing
+findPost id = fmap listToMaybe $ runDB "select id, title, body from posts where id = ?" (Only id)
